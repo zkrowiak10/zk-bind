@@ -1,0 +1,15 @@
+
+<!DOCTYPE html>
+<html>
+<input type="text" id="testInput" zk-bind="text: person.name">
+<input type="text" id="testInput" zk-bind="text: employee.manager.report.firstName">
+
+<p>Hello, my name is <span zk-bind="value: person.name"></span></p>
+
+
+<p> testing nesting object here: <span zk-bind="value: employee.manager.report.firstName"></span></p>
+
+<ul zk-bind="for: name of person.list"></ul>
+
+<script src ="playscript.js"></script>
+</html>
