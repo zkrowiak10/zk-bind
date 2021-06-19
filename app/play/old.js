@@ -5,46 +5,65 @@ let person = {
 
 objectRegistry = []
 
-// This function locates any html element descending from root that should be observed
+// Recursive function that locates and registers any html element descending from root that should be observed 
 function ParseDOMforObservables(model, root = document) 
 {
-    // Get all elements in DOM that contain the bind attribute
-    observableElements = root.querySelectorAll('[zk-bind]') 
+    if (!root.hasChildNodes) {break}
+    children = root.children
     
-    // iterate through list of elements 
-    for (element of observableElements) {
+    // iterate through children 
+    walkIterator:
+    for (child of children) {
 
-        // parse the bind command
-        // bind syntax is '<bindMode>: <object path'
-        let binder = element.getAttribute('zk-bind')
-        let splitBinder = binder.split(":")
+        // if HTML element contains binder
+        if (child.getAttribute('zk-bind')){
+            // parse the bind command
+            // bind syntax is '<bindMode>: <object path'
+            let binder = element.getAttribute('zk-bind')
+            let splitBinder = binder.split(":")
 
-        // isolate bindMode string and object path (getting rid of preceding white space)
-        let bindMode = splitBinder[0] 
-        let objectPath = splitBinder[1].trim()
+            // isolate bindMode string and object path (getting rid of preceding white space)
+            let bindMode = splitBinder[0] 
+            let objectPath = splitBinder[1].trim()
 
-        // Current array of valid bind modes for validity checking
-        validBindModes = ['text', 'value']
+            // Current array of valid bind modes for validity checking
+            validBindModes = ['text', 'value', 'for']
 
-        // Verify that bind mode is valid
-        if (!validBindModes.includes(bindMode)) 
-        {
-            throw new Error(bindMode + " is not a valid bind mode")
-        } 
 
-        // Parent object in path is expected to be an attribute of the model parameter of this function
-        // Parse parent object, and add this element to the appropriate list
-        parentObject = objectPath.split('.')[0]
+            // Verify that bind mode is valid
+            if (!validBindModes.includes(bindMode)) 
+            {
+                throw new Error(bindMode + " is not a valid bind mode")
+            } 
 
-        // Check that bind reference exists in model
-        if ((typeof model[parentObject] === undefined)) {
-            throw new Error (parentObject + "Is not a registered observable")
-        }
+            // Some binders, such as 'for' binders, create a separate tree model for all of their children
+            // This array contains a list of all 'uprooting' binders
+            let uprootingBinders = ['for']
 
-        // Push the element to the appropriate list 
-        boundElement = new BoundElement(element, objectPath)
-        model[parentObject].registerElement(bindMode, boundElement)
+            // This child becomes a new tree, so now further exploration of this branch can happen to avoid duplicate bindings
+            if (uprootingBinders.includes(bindMode)) {
+                continue walkIterator
+            }
 
+            // Parent object in path is expected to be an attribute of the model parameter of this function
+            // Parse parent object, and add this element to the appropriate list
+            parentObject = objectPath.split('.')[0]
+
+            // Check that bind reference exists in model
+            if ((typeof model[parentObject] === undefined)) {
+                throw new Error (parentObject + "Is not a registered observable")
+            }
+
+            // Push the element to the appropriate list 
+            boundElement = new BoundElement(element, objectPath)
+            model[parentObject].registerElement(bindMode, boundElement)
+
+            }
+
+        // Recursively parse all children of current root element
+        ParseDOMforObservables(model, child) 
+
+ 
         
     }
 }
