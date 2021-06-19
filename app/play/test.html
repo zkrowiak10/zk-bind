@@ -1,7 +1,8 @@
-<!-- 
+
 <!DOCTYPE html>
 <html>
 <input type="text" id="testInput" zk-bind="text: person.name">
+
 <input type="text" id="testInput" zk-bind="text: employee.manager.report.firstName">
 <body>
 <div>
@@ -13,11 +14,20 @@
 
 
 
-<p> testing nesting object here: <span zk-bind="value: employee.manager.report.firstName"></span></p> -->
+<p> testing nesting object here: <span zk-bind="value: employee.manager.report.firstName"></span></p>
+<input type ="text" zk-bind="text: addTaskFormValue.prop"> 
+<input type="text" zk-bind="text: addTaskFormValue.prop2">
+<input type="text" zk-bind="text: addTaskFormValue.prop3">
+<button type="button" onclick="mainModel.saveTask()">Save</button>
+<table style="border: 1px solid black" zk-bind="for: item of person.listItems">
+    <tr>
+        <td zk-bind="value: item.prop"></td>
+        <td zk-bind="value: item.prop2"></td>
+        <td zk-bind="value: item.prop3"></td>
+    </tr>
+    
+</table>
 
-<ul zk-bind="for: item of person.listItems">
-    <li zk-bind="value: item.prop"></li>
-</ul>
 
 <script src ="playscript.js"></script>
 </html>
