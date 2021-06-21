@@ -27,7 +27,7 @@ function ParseDOMforObservables(model, root = document)
             let objectPath = splitBinder[1].trim()
 
             // Current array of valid bind modes for validity checking
-            validBindModes = ['text', 'value', 'for']
+            validBindModes = ['text', 'value', 'for', 'on']
 
 
             // Verify that bind mode is valid

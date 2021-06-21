@@ -19,11 +19,13 @@
 <input type="text" zk-bind="text: addTaskFormValue.prop2">
 <input type="text" zk-bind="text: addTaskFormValue.prop3">
 <button type="button" onclick="mainModel.saveTask()">Save</button>
+<button type="button" zk-bind="on: click|testFunction(param,jam)">Test</button>
 <table style="border: 1px solid black" zk-bind="for: item of person.listItems">
     <tr>
         <td zk-bind="value: item.prop"></td>
         <td zk-bind="value: item.prop2"></td>
         <td zk-bind="value: item.prop3"></td>
+        <td><button zk-bind="on: click|item.parent.popFromForEach(item)"> Delete</button></td>
     </tr>
     
 </table>
