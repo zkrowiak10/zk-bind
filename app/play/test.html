@@ -25,11 +25,12 @@
         <td zk-bind="value: item.prop"></td>
         <td zk-bind="value: item.prop2"></td>
         <td zk-bind="value: item.prop3"></td>
-        <td><button zk-bind="on: click|item.parent.popFromForEach(item)"> Delete</button></td>
+        <td><button zk-bind="on: click|root.removeItem(item)"> Delete</button></td>
     </tr>
     
 </table>
 
 
-<script src ="playscript.js"></script>
+<script src ="zk.js"></script>
+<script src ="playClient.js"></script>
 </html>
