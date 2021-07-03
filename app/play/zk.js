@@ -5,9 +5,18 @@ function zk() {
     zk_self = this
     root_model = {}
 
+    // Function to initiate any object variables accessible to all zk objects
+    // Then begin recursively parsing DOM for observable elements
+    // Parameters
+    // Model: an object containing observable objects 
+    // Root: An html node that is the root element of all observable objects
     zk_self.initiateModel = function initiateModel(model, root) {
 
         self.root_model = model
+
+        if ((!root instanceof HTMLElement)) {
+            throw new Error("Invalid argument: second parameter must be an HTML element")
+        }
         ParseDOMforObservables(model,root)
 
     }
@@ -17,17 +26,20 @@ function zk() {
 
         // if HTML element contains binder
         if (root.getAttribute('zk-bind')){
+
             // parse the bind command
             // bind syntax is '<bindMode>: <object path'
             let binder = root.getAttribute('zk-bind')
             let splitBinder = binder.split(":")
+
+            if (splitBinder.length < 2) {throw new Error("Invalid binding at:", root)}
 
             // isolate bindMode string and object path (getting rid of preceding white space)
             let bindMode = splitBinder[0] 
             let objectPath = splitBinder[1].trim()
 
             // Current array of valid bind modes for validity checking
-            validBindModes = ['text', 'value', 'for', 'on']
+            validBindModes = ['text', 'value', 'for', 'on', 'date', 'checkbox', 'datetime', 'calc']
 
 
             // Verify that bind mode is valid
@@ -56,13 +68,15 @@ function zk() {
             
 
             // Push the element to the appropriate list 
-            boundElement = new BoundElement(root, objectPath)
+            boundElement = new BoundElement(root, objectPath, bindMode)
 
             if ((bindMode == 'on')) {
                 
                 registerListener(boundElement, model)
                 return
             }
+
+            if (!model[parentObject]) {throw new Error("Invald object path at ", parentObject)}
 
             model[parentObject].registerElement(bindMode, boundElement)
 
@@ -78,31 +92,43 @@ function zk() {
 
 
             }
-        // if (!root.hasChildNodes) {return}
+
         children = root.children
         
         // iterate through children 
         walkIterator:
         for (child of children) {
 
-        
-
             // Recursively parse all children of current root element
             ParseDOMforObservables(model, child) 
-
-    
-            
+   
         }
     }
 
     // instantiates a bound element storing the DOM element and the object path to which it is linked
-    function BoundElement(DOMelement, objectPath, oRef) {
+    function BoundElement(DOMelement, objectPath, bindMode) {
         this.DOMelement = DOMelement
         this.objectPath = objectPath
-        this.oRef = oRef    
+        this.bindMode = bindMode
+        this.oRef = undefined
+        this.property = undefined
+        this.observableChildren = undefined 
+
+        this.update = function() {
+
+            let value = this.oRef[this.property]
+
+            if (value instanceof Date) {
+                value = value._targetObject.toISOString()
+                // TODO add configuration callbacks for date string formatting
+            }
+
+            this.DOMelement.innerText = value
+                
+            
+        }
     }
 
-    zk_self.ObservableObject
     // takes a standard JSON object as a parameter, instantiate an observable object
     zk_self.ObservableObject = function ObservableObject(obj, parent) {
         
@@ -111,18 +137,25 @@ function zk() {
         self.parent = parent
 
         
-        // copy all object properties from simple JSON to this object
-        // TODO this is no longer necessary and needs to be removed
 
         // Create empty array for both text and value elements as well as components
         let receivers = []
         let transmitters = []
         let forEachComponents = []
+        let subscribers = []
         
         
         let handler = {
-            get: function(target, property) {
+            get: function(target, property,receiver) {
                 
+                if (typeof target[property] == "function") {
+                    
+                    if (target instanceof Date) {
+                        return target[property].bind(target)
+                    }
+
+                }   
+                        
                 // for certain operations, it is necessary to verify that the target object is the same spot in memory as 
                 // some other reference to it.
                 if (property == "_targetObject") {return target}
@@ -137,16 +170,14 @@ function zk() {
                     // console.log("setting", property, "to ", value)
                     return true
                 }
-                // TODO: allow for callbacks to be added to setter/getter methods by client
+                
                 target[property] = value
                 updateOnStateChangeByOref(target, property, value)
 
                 
                 return true
             },
-            apply: function(target, thisArg, arguments) {
-                console.log("applying function: ", target, "on ", thisArg)
-            },
+
             deleteProperty(target, property){
                 if (Array.isArray(target)) {
                     updateArrayOnDelete(target, property)
@@ -160,7 +191,6 @@ function zk() {
         
         }
 
-        // Sever the data object (obj parameter) from its original oref to avoid confusion of the two objects
         let dataObject = obj
 
         let dataObjectProxy = utils.deepProxy(dataObject, handler)
@@ -168,7 +198,7 @@ function zk() {
         for (let property in dataObjectProxy) {
 
  
-            Object.defineProperty(self,property, {
+            Object.defineProperty(self, property, {
                 get(){return dataObjectProxy[property]},
                 set(value) {
                     dataObjectProxy[property] = value
@@ -182,34 +212,21 @@ function zk() {
         }
 
 
-        // Function to update all elements on state change
-        function updateOnStateChange(objectPath,updateAll=false) {
-            for (element of receivers) {
-                if ((objectPath === element.objectPath) || updateAll) {
-                    let targetProperty = returnTargetProperty(element.objectPath)
-                    element.DOMelement.innerText = targetProperty
-                }
-            }
-        }
-
         // Function to update all elements on state change by oref
         // Function receives the object which contains the updated property, and the property key
         function updateOnStateChangeByOref(oRefParent, property, value) {
             for (let element of receivers) {
-                let lastIndex = element.objectPath.split('.').length - 1
-                let propertyString = element.objectPath.split('.')[lastIndex]
-                if ((element.oRef === oRefParent) && (property == propertyString) ){
-                    let targetProperty = element.oRef[property]
-                    element.DOMelement.innerText = value
+                if ((element.oRef._targetObject === oRefParent) && (property == element.property) ){
+                    element.update()
+                }
+            }
+            for (let subscriber of subscribers) {
+                if ((subscriber.target._targetObject === oRefParent) && (property == subscriber.property) ){
+                    subscriber.applyCallbacks()
                 }
             }
         }
-
-        // Returns a deep clone of the data object to retain privacy of dataObjectProxy
-        this.getdataObjectProxy = function (){
-            return utils.deepClone(dataObjectProxy)
-        }
-            
+ 
         
         // Parse property path of binding and return object at that location
         function returnTargetProperty(pathToObject, getParent = false) {
@@ -219,7 +236,7 @@ function zk() {
             for (let i = 1; i < splitPath.length; i++) {
                 if  (getParent && (i == (splitPath.length - 1))) {return targetChild}
                 targetChild = targetChild[splitPath[i]]
-                if (!targetChild) {
+                if (typeof targetChild === "undefined") {
                     throw new Error(pathToObject + " is an invalid property path")
                 }
                 
@@ -232,25 +249,45 @@ function zk() {
 
 
         // take a bound 'transmitter' element and add an event lister to update model object and transmit to receivers
-        function initializeTransmitter(boundElement) {
-                boundElement.DOMelement.value = returnTargetProperty(boundElement.objectPath)
-                boundElement.DOMelement.addEventListener("keyup", (KeyboardEvent) => {
-                pathString = boundElement.objectPath
-                revisedPath = pathString.replace(pathString.split(['.'])[0],'dataObjectProxy')
-                eval(revisedPath + "= boundElement.DOMelement.value");
-                updateOnStateChange(boundElement.objectPath)
+        function initializeTransmitter(boundElement, bindMode) {
+
+                // A transmitter should always be an input element in HTML. Currently, the supported elemetns
+                // Are text, date, datetime, checked
+                if(!(boundElement instanceof BoundElement)) {throw new Error('Invalid argument to initialize transmitter')}
+
+                let oRef = boundElement.oRef
+                let property = boundElement.property
+                let updateValue = oRef[property]
+
+                if (bindMode == "date") {
+                    if (updateValue instanceof Date) {
+                        updateValue = updateValue._targetObject.toISOString().split('T')[0]
+                        
+                    }
+                    else {throw new Error("Invalid value for 'Date' binding: ", updateValue)}
+                }
+                if (bindMode == "datetime-local")  {
+                    if (updatValue instanceof Date) {
+                        updateValue = updateValue._targetObject.toISOString()
+                    }
+                    else {throw new Error("Invalid value for 'Date' binding: ", updateValue)}
+                }
+                boundElement.DOMelement.value = updateValue
+             
+                
+                boundElement.DOMelement.addEventListener("input", (KeyboardEvent) => {
+                    
+                    
+                    let nodeValue = boundElement.DOMelement.value
+                    if (bindMode == "date") {
+                        oRef[property] = new Proxy(new Date(nodeValue), handler)
+                        return
+                    }
+                    oRef[property] = nodeValue
             })
         }
 
-        // Function to delete any element containing a reference to the objectpath
-        this.deleteAllReferences = function(objectPath, all = false) {
-            
-            for (boundElement of receivers) {
-                if ((boundElement.objectPath === objectPath)|| all) {
-                    boundElement.DOMelement.remove()
-                }
-            }
-        }
+        
 
 
 
@@ -453,22 +490,51 @@ function zk() {
 
             switch (bindMode) {
                 case "text" :
+                case "date" :
+                case "checked":
+                case "datetime":
                     transmitters.push(boundElement);
                     oRefPath = utils.prepareObjectPath(boundElement.objectPath)
-                    boundElement.oRef = utils.returnTargetProperty(dataObject, oRefPath, true)
-                    initializeTransmitter(boundElement);
+                    boundElement.oRef = utils.returnTargetProperty(dataObjectProxy, oRefPath, true)
+                    var splitPath = boundElement.objectPath.split(".")
+                    boundElement.property = splitPath[(splitPath.length-1)]
+                    initializeTransmitter(boundElement, bindMode);
                     break
                 case "value": 
-                    receivers.push(boundElement);
+                    
+                    transmitters.push(boundElement);
                     oRefPath = utils.prepareObjectPath(boundElement.objectPath)
-                    boundElement.oRef = utils.returnTargetProperty(dataObject, oRefPath, true)
-                    updateOnStateChange(boundElement.objectPath);
+                    boundElement.oRef = utils.returnTargetProperty(dataObjectProxy, oRefPath, true)
+                    splitPath = boundElement.objectPath.split(".")
+                    boundElement.property = splitPath[(splitPath.length-1)]
+                    receivers.push(boundElement);
+                    boundElement.update()
                     break
                 case "for":
                     initializeForeach(boundElement);
                     break
             }
         }
+    }
+    zk_self.subscribe = function(eventTypes, target, property, callback) {
+        this.eventTypes = eventTypes
+        this.target = target
+        this.property = property
+        this.callback = callback
+
+        if (!(target instanceof zk_self.ObservableObject)) {
+            throw new Error("Invalid subscription target. Subscribe must be called on an ObservableObject")
+        }
+
+        subscribers.push(this)
+        this.applyCallbacks(eventType) = function() {
+
+            if (eventTypes.includes(eventTypes)) {
+                callback(eventType, target)
+            }
+                
+        }
+
     }
 
     // 'on' binds have an object path of <event>|<callback>
@@ -532,6 +598,7 @@ function zk() {
         // method to remove first and last object for oRef attribut
         prepareObjectPath: function (objectPath) {
             let objArray = objectPath.split(".")
+            let property = objArray[(objArray.length-1)]
             objArray = objArray.splice(1)
             objArray = objArray.join(".")
             return objArray
@@ -556,7 +623,7 @@ function zk() {
 
             }
             return targetChild
-        }
+        },
         
         
     }
