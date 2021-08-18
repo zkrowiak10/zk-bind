@@ -1,16 +1,17 @@
 
 <!DOCTYPE html>
 <html>
+<body>
 <input type="text" id="testInput" zk-bind="text: person.name">
 
 <input type="text" id="testInput" zk-bind="text: employee.manager.report.firstName">
-<body>
+
 <div>
     <div>
         <p>Hello, my name is <span zk-bind="value: person.name"></span></p>
     </div>
 </div>
-</body>
+
 
 
 
@@ -29,8 +30,8 @@
     </tr>
     
 </table>
+</body>
 
-
-<script src ="zk.js"></script>
+<script  src ="zk.js"></script>
 <script src ="playClient.js"></script>
 </html>
