@@ -19,19 +19,19 @@
 <input type ="text" zk-bind="text: addTaskFormValue.prop"> 
 <input type="text" zk-bind="text: addTaskFormValue.prop2">
 <input type="text" zk-bind="text: addTaskFormValue.prop3">
-<button type="button" onclick="mainModel.saveTask()">Save</button>
+<button type="button" zk-bind="on: click|saveTask()">Save</button>
 <button type="button" zk-bind="on: click|testFunction(param,jam)">Test</button>
 <table style="border: 1px solid black" zk-bind="for: item of person.listItems">
     <tr>
         <td zk-bind="value: item.prop"></td>
         <td zk-bind="value: item.prop2"></td>
         <td zk-bind="value: item.prop3"></td>
-        <td><button zk-bind="on: click|root.removeItem(item)"> Delete</button></td>
+        <td><button zk-bind="on: click|$parentModel.removeItem(item)"> Delete</button></td>
     </tr>
     
 </table>
 </body>
 
-<script  src ="zk.js"></script>
-<script src ="playClient.js"></script>
+<script  src ="../dist/playScript.js"></script>
+
 </html>

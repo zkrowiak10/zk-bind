@@ -1,4 +1,4 @@
-import { zk } from "../src/zk";
+import {zk} from "../src/zk"
 
 let person = {
   name: "harry",
@@ -22,7 +22,7 @@ function model() {
         firstName: "johnathan",
       },
     },
-    testF: function () {
+    testF: function () { 
       console.log("testfworked");
     },
   };
@@ -36,7 +36,7 @@ function model() {
 
   this.saveTask = function () {
     // this.person.pushToForeach('person.listItems',this.addTaskFormValue.getdataObjectProxy())
-    this.person.listItems.push(this.addTaskFormValue.getdataObjectProxy());
+    this.person.listItems.push(this.addTaskFormValue);
   };
   this.removeItem = function (item) {
     let index = person.listItems.indexOf(item);
@@ -51,4 +51,5 @@ function model() {
 }
 
 const mainModel = new model();
+
 zk.initiateModel(mainModel, document.children[0]);
